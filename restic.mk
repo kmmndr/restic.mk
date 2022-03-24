@@ -5,6 +5,7 @@ DOCKER_VOLUMES=$(shell find ${DOCKER_VOLUMES_PATH} -type d -maxdepth 1 -mindepth
 RESTIC_CONF?=$$HOME/restic.json
 
 for_each_docker_volume=for volume in ${DOCKER_VOLUMES}; do $(1); done
+for_each_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.volumes[].name' | xargs); do $(1); done
 for_each_virtual_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.virtual_volumes[].name' | xargs); do $(1); done
 
 define usage =
@@ -15,6 +16,8 @@ Options:
   snapshots
     List available snapshots
 
+  list-volumes
+    List volumes
   list-virtual-volumes
     List virtual volumes
 
@@ -40,6 +43,13 @@ init:
 snapshots:
 	restic snapshots --host "$$HOST"
 
+.PHONY: list-volumes
+list-volumes:
+	@echo "** Volumes **"
+	@$(call for_each_volume, \
+		echo "- $$volume" \
+	)
+
 .PHONY: list-virtual-volumes
 list-virtual-volumes:
 	@echo "** Virtual volumes **"
@@ -54,10 +64,20 @@ backup-docker-volumes:
 		restic backup --tag $$volume --host "$$HOST" "${DOCKER_VOLUMES_PATH}/$$volume" \
 	)
 
+PATH_CMD = path_cmd() { \
+	cat ${RESTIC_CONF} | jq -r ".volumes[] | select(.name == \"$$1\") | .path"; \
+}
+.PHONY: backup-volumes
+backup-volumes:
+	@$(PATH_CMD); $(call for_each_volume, \
+		echo "*** Backup volume $$volume ***"; \
+		restic backup --tag $$volume --host "$$HOST" "$$(path_cmd $$volume)" \
+	)
+
 .PHONY: restore-volume
 restore-volume:
 	@test -n "${volume}" -a -n "${snapshot}"
-	@echo "*** Restore volume ${volume} from snapshot ${snapshot} ***"
+	@echo "*** Restore volume '${volume}' from snapshot '${snapshot}' ***"
 	restic restore --target / "${snapshot}"
 
 BACKUP_CMD = backup_cmd() { \
