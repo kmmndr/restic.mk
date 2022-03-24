@@ -2,7 +2,7 @@
 
 DOCKER_VOLUMES_PATH=/var/lib/docker/volumes/
 DOCKER_VOLUMES=$(shell find ${DOCKER_VOLUMES_PATH} -type d -maxdepth 1 -mindepth 1 -exec basename {} \;)
-RESTIC_CONF?=$$HOME/restic.json
+RESTIC_CONF?=$$HOME/.restic.json
 HOST?=$(shell hostname -f)
 
 for_each_docker_volume=for volume in ${DOCKER_VOLUMES}; do $(1); done
