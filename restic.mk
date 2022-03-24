@@ -5,14 +5,7 @@ DOCKER_VOLUMES=$(shell find ${DOCKER_VOLUMES_PATH} -type d -maxdepth 1 -mindepth
 RESTIC_CONF?=$$HOME/restic.json
 
 for_each_docker_volume=for volume in ${DOCKER_VOLUMES}; do $(1); done
-for_each_virtual_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.virtual[].name' | xargs); do $(1); done
-
-CMDS = backup_cmd() { \
-	cat ${RESTIC_CONF} | jq -r ".virtual[] | select(.name == \"$$1\") | .backup_cmd"; \
-}; \
-restore_cmd() { \
-	cat ${RESTIC_CONF} | jq -r ".virtual[] | select(.name == \"$$1\") | .restore_cmd"; \
-}
+for_each_virtual_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.virtual_volumes[].name' | xargs); do $(1); done
 
 define usage =
 Options:
@@ -67,15 +60,21 @@ restore-volume:
 	@echo "*** Restore volume ${volume} from snapshot ${snapshot} ***"
 	restic restore --target / "${snapshot}"
 
+BACKUP_CMD = backup_cmd() { \
+	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .backup_cmd"; \
+}
 .PHONY: backup-virtual-volumes
 backup-virtual-volumes:
 	@echo "** Backup virtual volumes **"
-	@$(CMDS); $(call for_each_virtual_volume, \
+	@$(BACKUP_CMD); $(call for_each_virtual_volume, \
 		$$(backup_cmd $$volume) | restic backup --tag "$$volume" --host "$$HOST" --stdin \
 	)
 
+RESTORE_CMD = restore_cmd() { \
+	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .restore_cmd"; \
+}
 .PHONY: restore-virtual-volume
 restore-virtual-volume:
 	@test -n "${volume}" -a -n "${snapshot}"
-	@set -eu; echo "*** Restore virtual volume ${volume} from snapshot ${snapshot}"
-	@$(CMDS); restic dump "${snapshot}" /stdin | $$(restore_cmd ${volume}) \
+	@set -eu; echo "*** Restore virtual volume '${volume}' from snapshot '${snapshot}'"
+	@$(RESTORE_CMD); restic dump "${snapshot}" /stdin | $$(restore_cmd ${volume}) \
