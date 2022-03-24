@@ -30,6 +30,11 @@ Options:
   backup-virtual-volumes
     Backup virtual volumes
 
+  find-last-snapshot -e volume=...
+    Find last snapshot id for a given volume name
+    May be combined to restore last volume
+    (restic.mk -e volume=... find-last-snapshot restore-volume)
+
   restore-volume -e volume=... snapshot=...
     Restore specified snapshot to volume
   restore-virtual-volume -e volume=... snapshot=...
@@ -100,6 +105,13 @@ backup-volumes:
 		echo "*** Backup volume $$volume ***"; \
 		restic backup --tag $$volume --host "${HOST}" "$$(path_cmd $$volume)" \
 	)
+
+.PHONY: find-last-snapshot
+find-last-snapshot:
+	@test -n "${volume}"
+	@echo "*** Finding last snapshot for volume '${volume}' ***"
+	@$(eval snapshot=$(shell restic snapshots --tag ${volume} --host ${HOST} --latest 1 --json | jq -r .[].id))
+	@echo "Last snapshot: ${snapshot}"
 
 .PHONY: restore-volume
 restore-volume:
