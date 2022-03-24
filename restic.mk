@@ -14,6 +14,9 @@ Options:
   init
     Initialize restic repository
 
+  config-example
+    Print config example (restic.mk config-example > ${RESTIC_CONF})
+
   snapshots
     List available snapshots
 
@@ -33,8 +36,31 @@ Options:
     Restore specified snapshot to virtual volume
 endef
 
+define default_config =
+{
+  "volumes": [
+    {
+      "name": "example",
+      "path": "/important/data"
+    }
+  ],
+  "virtual_volumes": [
+    {
+      "name": "database_example",
+      "backup_cmd": "mysqldump --user=user --password=password database",
+      "restore_cmd": "mysql --user=user --password=password database"
+    }
+  ]
+}
+endef
+export default_config
+
 .PHONY: help
 help:; @ $(info $(usage)) :
+
+.PHONY: config-example
+config-example:
+	@echo $$default_config | jq
 
 .PHONY: init
 init:
