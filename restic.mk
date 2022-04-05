@@ -91,8 +91,8 @@ backup-docker-volumes:
 	@docker_volumes_path=$${DOCKER_VOLUMES_PATH:-/var/lib/docker/volumes/}; \
 		echo $$docker_volumes_path; \
 		for volume in $$(find $$docker_volumes_path -maxdepth 1 -mindepth 1 -type d -exec basename {} \;); do \
-			echo "*** Backup docker volume $$volume ***"; \
-			restic backup --tag $$volume --host "${HOST}" "$$docker_volumes_path/$$volume"; \
+			echo "*** Backup volume docker-$$volume ***"; \
+			restic backup --tag docker-$$volume --host "${HOST}" "$$docker_volumes_path/$$volume"; \
 		done
 
 PATH_CMD = path_cmd() { \
