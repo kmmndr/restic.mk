@@ -95,6 +95,14 @@ backup-docker-volumes:
 			restic backup --tag docker-$$volume --host "${HOST}" "$$docker_volumes_path/$$volume"; \
 		done
 
+.PHONY: ensure-volume-presence
+ensure-volume-presence:
+	@test -n "${volume}" || (echo 'volume parameter is missing'; exit 1)
+
+.PHONY: ensure-snapshot-presence
+ensure-snapshot-presence:
+	@test -n "${snapshot}" || (echo 'snapshot parameter is missing'; exit 1)
+
 PATH_CMD = path_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".volumes[] | select(.name == \"$$1\") | .path"; \
 }
@@ -106,15 +114,13 @@ backup-volumes:
 	)
 
 .PHONY: find-last-snapshot
-find-last-snapshot:
-	@test -n "${volume}"
+find-last-snapshot: ensure-volume-presence
 	@echo "*** Finding last snapshot for volume '${volume}' ***"
 	@$(eval snapshot=$(shell restic snapshots --tag ${volume} --host ${HOST} --latest 1 --json | jq -r .[].id))
 	@echo "Last snapshot: ${snapshot}"
 
 .PHONY: restore-volume
-restore-volume:
-	@test -n "${volume}" -a -n "${snapshot}"
+restore-volume: ensure-volume-presence ensure-snapshot-presence
 	@echo "*** Restore volume '${volume}' from snapshot '${snapshot}' ***"
 	restic restore --target / "${snapshot}"
 
@@ -132,7 +138,6 @@ VIRTUAL_RESTORE_CMD = virtual_restore_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .restore_cmd"; \
 }
 .PHONY: restore-virtual-volume
-restore-virtual-volume:
-	@test -n "${volume}" -a -n "${snapshot}"
+restore-virtual-volume: ensure-volume-presence ensure-snapshot-presence
 	@set -eu; echo "*** Restore virtual volume '${volume}' from snapshot '${snapshot}'"
 	@$(VIRTUAL_RESTORE_CMD); restic dump "${snapshot}" /stdin | $$(virtual_restore_cmd ${volume}) \
