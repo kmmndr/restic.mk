@@ -133,6 +133,12 @@ restore-volume: ensure-volume-presence ensure-snapshot-presence
 VIRTUAL_BACKUP_CMD = virtual_backup_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .backup_cmd"; \
 }
+.PHONY: backup-virtual-volume
+backup-virtual-volume: ensure-volume-presence
+	@$(VIRTUAL_BACKUP_CMD);  \
+		echo "*** Backup virtual volume ${volume} ***"; \
+		$$(virtual_backup_cmd ${volume}) | restic backup --tag "${volume}" --host "${HOST}" --stdin
+
 .PHONY: backup-virtual-volumes
 backup-virtual-volumes:
 	@echo "** Backup virtual volumes **"

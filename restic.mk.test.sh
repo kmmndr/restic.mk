@@ -15,6 +15,13 @@ cat > $RESTIC_CONF <<EOF
       "name": "source",
       "path": "$SOURCE_DIR"
     }
+  ],
+  "virtual_volumes": [
+    {
+      "name": "fake_example",
+      "backup_cmd": "date",
+      "restore_cmd": "tee -a $SOURCE_DIR/fake"
+    }
   ]
 }
 EOF
