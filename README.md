@@ -55,20 +55,31 @@ Options:
     Initialize restic repository
 
   config-example
-    Print config example (restic.mk config-example > $HOME/.restic.json)
+    Print config example (restic.mk config-example > ${RESTIC_CONF})
 
   snapshots
     List available snapshots
 
   list-volumes
     List volumes
+
   list-virtual-volumes
     List virtual volumes
 
   backup-docker-volumes
     Backup docker volumes
+
+  backup-volume -e volume=...
+    Backup specified volume
+
+  backup-volumes
+    Backup each volumes
+
+  backup-virtual-volume -e volume=...
+    Backup specified virtual volume
+
   backup-virtual-volumes
-    Backup virtual volumes
+    Backup each virtual volumes
 
   find-last-snapshot -e volume=...
     Find last snapshot id for a given volume name
@@ -76,7 +87,8 @@ Options:
     (restic.mk -e volume=... find-last-snapshot restore-volume)
 
   restore-volume -e volume=... snapshot=...
-    Restore specified snapshot to volume
+    Restore specified volume's snapshot
+
   restore-virtual-volume -e volume=... snapshot=...
-    Restore specified snapshot to virtual volume
+    Restore specified virtual volume's snapshot
 ```
