@@ -106,6 +106,12 @@ ensure-snapshot-presence:
 PATH_CMD = path_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".volumes[] | select(.name == \"$$1\") | .path"; \
 }
+.PHONY: backup-volume
+backup-volume: ensure-volume-presence
+	@$(PATH_CMD); \
+		echo "*** Backup volume ${volume} ***"; \
+		restic backup --tag ${volume} --host "${HOST}" "$$(path_cmd ${volume})"
+
 .PHONY: backup-volumes
 backup-volumes:
 	@$(PATH_CMD); $(call for_each_volume, \
