@@ -118,21 +118,21 @@ restore-volume:
 	@echo "*** Restore volume '${volume}' from snapshot '${snapshot}' ***"
 	restic restore --target / "${snapshot}"
 
-BACKUP_CMD = backup_cmd() { \
+VIRTUAL_BACKUP_CMD = virtual_backup_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .backup_cmd"; \
 }
 .PHONY: backup-virtual-volumes
 backup-virtual-volumes:
 	@echo "** Backup virtual volumes **"
-	@$(BACKUP_CMD); $(call for_each_virtual_volume, \
-		$$(backup_cmd $$volume) | restic backup --tag "$$volume" --host "${HOST}" --stdin \
+	@$(VIRTUAL_BACKUP_CMD); $(call for_each_virtual_volume, \
+		$$(virtual_backup_cmd $$volume) | restic backup --tag "$$volume" --host "${HOST}" --stdin \
 	)
 
-RESTORE_CMD = restore_cmd() { \
+VIRTUAL_RESTORE_CMD = virtual_restore_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .restore_cmd"; \
 }
 .PHONY: restore-virtual-volume
 restore-virtual-volume:
 	@test -n "${volume}" -a -n "${snapshot}"
 	@set -eu; echo "*** Restore virtual volume '${volume}' from snapshot '${snapshot}'"
-	@$(RESTORE_CMD); restic dump "${snapshot}" /stdin | $$(restore_cmd ${volume}) \
+	@$(VIRTUAL_RESTORE_CMD); restic dump "${snapshot}" /stdin | $$(virtual_restore_cmd ${volume}) \
