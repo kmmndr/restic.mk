@@ -18,6 +18,12 @@ cat > $RESTIC_CONF <<EOF
   ]
 }
 EOF
+export DOCKER_VOLUMES_PATH=$BASE_TEST_DIR/docker/volumes
+mkdir -p $DOCKER_VOLUMES_PATH
+for idx in $(seq 1 2); do
+  mkdir -p $DOCKER_VOLUMES_PATH/vol$idx/_data/folder
+  date > $DOCKER_VOLUMES_PATH/vol$idx/_data/folder/now
+done
 
 echo "BASE_TEST_DIR: $BASE_TEST_DIR"
 echo "RESTIC_REPOSITORY: $RESTIC_REPOSITORY"

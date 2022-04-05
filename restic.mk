@@ -1,11 +1,8 @@
 #!/usr/bin/env -S make -f
 
-DOCKER_VOLUMES_PATH=/var/lib/docker/volumes/
-DOCKER_VOLUMES=$(shell find ${DOCKER_VOLUMES_PATH} -type d -maxdepth 1 -mindepth 1 -exec basename {} \;)
 RESTIC_CONF?=$$HOME/.restic.json
 HOST?=$(shell hostname -f)
 
-for_each_docker_volume=for volume in ${DOCKER_VOLUMES}; do $(1); done
 for_each_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.volumes[].name' | xargs); do $(1); done
 for_each_virtual_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.virtual_volumes[].name' | xargs); do $(1); done
 
@@ -91,10 +88,12 @@ list-virtual-volumes:
 
 .PHONY: backup-docker-volumes
 backup-docker-volumes:
-	@$(call for_each_docker_volume, \
-		echo "*** Backup docker volume $$volume ***"; \
-		restic backup --tag $$volume --host "${HOST}" "${DOCKER_VOLUMES_PATH}/$$volume" \
-	)
+	@docker_volumes_path=$${DOCKER_VOLUMES_PATH:-/var/lib/docker/volumes/}; \
+		echo $$docker_volumes_path; \
+		for volume in $$(find $$docker_volumes_path -maxdepth 1 -mindepth 1 -type d -exec basename {} \;); do \
+			echo "*** Backup docker volume $$volume ***"; \
+			restic backup --tag $$volume --host "${HOST}" "$$docker_volumes_path/$$volume"; \
+		done
 
 PATH_CMD = path_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".volumes[] | select(.name == \"$$1\") | .path"; \
