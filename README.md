@@ -1,7 +1,8 @@
 # Restic.mk
 
-[Restic](https://restic.net/) is a wonderful backup tool. But it has no
-configuration file. This project aim to simply automate backup tasks.
+[Restic](https://restic.net/) is a wonderful backup tool, but it has no
+configuration file. [restic.mk](https://github.com/kmmndr/restic.mk) aims to
+automate backup and restore tasks in the simplest way.
 
 ## Requirements
 
@@ -29,8 +30,8 @@ $ restic.mk config-example
 {
   "volumes": [
     {
-      "name": "example",
-      "path": "/important/data"
+      "name": "home_user",
+      "path": "/home/user"
     }
   ],
   "virtual_volumes": [
@@ -38,6 +39,11 @@ $ restic.mk config-example
       "name": "database_example",
       "backup_cmd": "mysqldump --user=user --password=password database",
       "restore_cmd": "mysql --user=user --password=password database"
+    },
+    {
+      "name": "dockerized_database_example",
+      "backup_cmd": "docker exec -it -e PGPASSWORD=$DB_PASSWORD postgres pg_dump --clean -h 127.0.0.1 -U $DB_USER $DB_DATABASE",
+      "restore_cmd": "docker exec -i -e PGPASSWORD=$DB_PASSWORD postgres psql -U $DB_USER -h localhost -d $DB_DATABASE"
     }
   ]
 }

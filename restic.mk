@@ -54,8 +54,8 @@ define default_config =
 {
   "volumes": [
     {
-      "name": "example",
-      "path": "/important/data"
+      "name": "home_${USER}",
+      "path": "${HOME}"
     }
   ],
   "virtual_volumes": [
@@ -63,6 +63,11 @@ define default_config =
       "name": "database_example",
       "backup_cmd": "mysqldump --user=user --password=password database",
       "restore_cmd": "mysql --user=user --password=password database"
+    },
+    {
+      "name": "dockerized_database_example",
+      "backup_cmd": "docker exec -it -e PGPASSWORD=$$DB_PASSWORD postgres pg_dump --clean -h 127.0.0.1 -U $$DB_USER $$DB_DATABASE",
+      "restore_cmd": "docker exec -i -e PGPASSWORD=$$DB_PASSWORD postgres psql -U $$DB_USER -h localhost -d $$DB_DATABASE"
     }
   ]
 }
