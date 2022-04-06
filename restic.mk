@@ -101,7 +101,7 @@ list-virtual-volumes:
 .PHONY: backup-docker-volumes
 backup-docker-volumes:
 	@docker_volumes_path=$${DOCKER_VOLUMES_PATH:-/var/lib/docker/volumes/}; \
-		echo $$docker_volumes_path; \
+		echo "Docker volumes path: $$docker_volumes_path"; \
 		for volume in $$(find $$docker_volumes_path -maxdepth 1 -mindepth 1 -type d -exec basename {} \;); do \
 			echo "*** Backup volume docker-$$volume ***"; \
 			restic backup --tag docker-$$volume --host "${HOST}" "$$docker_volumes_path/$$volume"; \
@@ -115,21 +115,20 @@ ensure-volume-presence:
 ensure-snapshot-presence:
 	@test -n "${snapshot}" || (echo 'snapshot parameter is missing'; exit 1)
 
-PATH_CMD = path_cmd() { \
+VOLUME_CMDS = path_cmd() { \
 	cat ${RESTIC_CONF} | jq -r ".volumes[] | select(.name == \"$$1\") | .path"; \
+}; \
+backup_volume() { \
+	echo "*** Backup volume $$1 ***"; \
+	restic backup --tag $$1 --host "${HOST}" "$$(path_cmd $$1)"; \
 }
 .PHONY: backup-volume
 backup-volume: ensure-volume-presence
-	@$(PATH_CMD); \
-		echo "*** Backup volume ${volume} ***"; \
-		restic backup --tag ${volume} --host "${HOST}" "$$(path_cmd ${volume})"
+	@$(VOLUME_CMDS); backup_volume ${volume}
 
 .PHONY: backup-volumes
 backup-volumes:
-	@$(PATH_CMD); $(call for_each_volume, \
-		echo "*** Backup volume $$volume ***"; \
-		restic backup --tag $$volume --host "${HOST}" "$$(path_cmd $$volume)" \
-	)
+	@$(VOLUME_CMDS); $(call for_each_volume, backup_volume $$volume)
 
 .PHONY: find-last-snapshot
 find-last-snapshot: ensure-volume-presence
