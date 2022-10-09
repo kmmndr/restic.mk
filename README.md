@@ -31,7 +31,9 @@ $ restic.mk config-example
   "volumes": [
     {
       "name": "home_user",
-      "path": "/home/user"
+      "path": "/home/user",
+      "backup_flags": "--verbose",
+      "restore_flags": "--quiet"
     }
   ],
   "virtual_volumes": [

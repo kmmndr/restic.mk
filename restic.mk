@@ -55,7 +55,9 @@ define default_config =
   "volumes": [
     {
       "name": "home_${USER}",
-      "path": "${HOME}"
+      "path": "${HOME}",
+      "backup_flags": "--verbose",
+      "restore_flags": "--quiet"
     }
   ],
   "virtual_volumes": [
@@ -74,6 +76,40 @@ define default_config =
 endef
 export default_config
 
+CMDS = \
+config() { \
+	cat ${RESTIC_CONF} | jq -r "$$1"; \
+}; \
+volume() { \
+	echo -n ".volumes[] | select(.name == \"$$1\")"; \
+}; \
+virtual_volume() { \
+	echo -n ".virtual_volumes[] | select(.name == \"$$1\")"; \
+}; \
+path() { \
+	echo -n "| .path"; \
+}; \
+backup_cmd() { \
+	echo -n "| .backup_cmd"; \
+}; \
+restore_cmd() { \
+	echo -n "| .restore_cmd"; \
+}; \
+backup_flags() { \
+	echo -n "| .backup_flags // empty"; \
+}; \
+restore_flags() { \
+	echo -n "| .restore_flags // empty"; \
+}; \
+backup_volume() { \
+	echo "*** Backup volume $$1 ***"; \
+	restic backup $$(config "$$(volume $$1) $$(backup_flags)") --tag $$1 --host "${HOST}" "$$(config "$$(volume $$1) $$(path)")"; \
+}; \
+backup_virtual_volume() { \
+	echo "*** Backup virtual volume $$1 ***"; \
+	$$(config "$$(virtual_volume $$1) $$(backup_cmd)") | restic backup $$(config "$$(virtual_volume $$1) $$(backup_flags)") --tag "$$1" --host "${HOST}" --stdin; \
+}
+
 .PHONY: help
 help:; @ $(info $(usage)) :
 
@@ -83,11 +119,11 @@ config-example:
 
 .PHONY: init
 init:
-	restic snapshots -q >/dev/null 2>&1 || restic init
+	@restic snapshots -q >/dev/null 2>&1 || restic init
 
 .PHONY: snapshots
 snapshots:
-	restic snapshots --host "${HOST}"
+	@restic snapshots --host "${HOST}"
 
 .PHONY: list-volumes
 list-volumes:
@@ -120,20 +156,13 @@ ensure-volume-presence:
 ensure-snapshot-presence:
 	@test -n "${snapshot}" || (echo 'snapshot parameter is missing'; exit 1)
 
-VOLUME_CMDS = path_cmd() { \
-	cat ${RESTIC_CONF} | jq -r ".volumes[] | select(.name == \"$$1\") | .path"; \
-}; \
-backup_volume() { \
-	echo "*** Backup volume $$1 ***"; \
-	restic backup --tag $$1 --host "${HOST}" "$$(path_cmd $$1)"; \
-}
 .PHONY: backup-volume
 backup-volume: ensure-volume-presence
-	@$(VOLUME_CMDS); backup_volume ${volume}
+	@$(CMDS); backup_volume ${volume}
 
 .PHONY: backup-volumes
 backup-volumes:
-	@$(VOLUME_CMDS); $(call for_each_volume, backup_volume $$volume)
+	@$(CMDS); $(call for_each_volume, backup_volume $$volume)
 
 .PHONY: find-last-snapshot
 find-last-snapshot: ensure-volume-presence
@@ -144,27 +173,17 @@ find-last-snapshot: ensure-volume-presence
 .PHONY: restore-volume
 restore-volume: ensure-volume-presence ensure-snapshot-presence
 	@echo "*** Restore volume '${volume}' from snapshot '${snapshot}' ***"
-	restic restore --target / "${snapshot}"
+	@$(CMDS); restic restore $$(config "$$(volume ${volume}) $$(restore_flags)") --target / "${snapshot}"
 
-VIRTUAL_BACKUP_CMDS = virtual_backup_cmd() { \
-	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .backup_cmd"; \
-}; \
-backup_virtual_volume() { \
-	echo "*** Backup virtual volume $$1 ***"; \
-	$$(virtual_backup_cmd $$1) | restic backup --tag "$$1" --host "${HOST}" --stdin; \
-}
 .PHONY: backup-virtual-volume
 backup-virtual-volume: ensure-volume-presence
-	@$(VIRTUAL_BACKUP_CMDS); backup_virtual_volume ${volume}
+	@$(CMDS); backup_virtual_volume ${volume}
 
 .PHONY: backup-virtual-volumes
 backup-virtual-volumes:
-	@$(VIRTUAL_BACKUP_CMDS); $(call for_each_virtual_volume, backup_virtual_volume $$volume)
+	@$(CMDS); $(call for_each_virtual_volume, backup_virtual_volume $$volume)
 
-VIRTUAL_RESTORE_CMD = virtual_restore_cmd() { \
-	cat ${RESTIC_CONF} | jq -r ".virtual_volumes[] | select(.name == \"$$1\") | .restore_cmd"; \
-}
 .PHONY: restore-virtual-volume
 restore-virtual-volume: ensure-volume-presence ensure-snapshot-presence
 	@set -eu; echo "*** Restore virtual volume '${volume}' from snapshot '${snapshot}'"
-	@$(VIRTUAL_RESTORE_CMD); restic dump "${snapshot}" /stdin | $$(virtual_restore_cmd ${volume}) \
+	@$(CMDS); restic dump $$(config "$$(virtual_volume ${volume}) $$(restore_flags)") "${snapshot}" /stdin | $$(config "$$(virtual_volume ${volume}) $$(restore_cmd)")
