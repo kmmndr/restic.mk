@@ -3,9 +3,6 @@
 RESTIC_CONF?=$$HOME/.restic.json
 HOST?=$(shell hostname -f)
 
-for_each_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.volumes[].name' | xargs); do $(1); done
-for_each_virtual_volume=for volume in $$(cat ${RESTIC_CONF} | jq -r '.virtual_volumes[].name' | xargs); do $(1); done
-
 define usage =
 Options:
   init
@@ -50,7 +47,7 @@ Options:
     Restore specified virtual volume's snapshot
 endef
 
-define default_config =
+define config_example =
 {
   "volumes": [
     {
@@ -74,48 +71,52 @@ define default_config =
   ]
 }
 endef
-export default_config
 
-CMDS = \
-config() { \
-	cat ${RESTIC_CONF} | jq -r "$$1"; \
-}; \
-volume() { \
-	echo -n ".volumes[] | select(.name == \"$$1\")"; \
-}; \
-virtual_volume() { \
-	echo -n ".virtual_volumes[] | select(.name == \"$$1\")"; \
-}; \
-path() { \
-	echo -n "| .path"; \
-}; \
-backup_cmd() { \
-	echo -n "| .backup_cmd"; \
-}; \
-restore_cmd() { \
-	echo -n "| .restore_cmd"; \
-}; \
-backup_flags() { \
-	echo -n "| .backup_flags // empty"; \
-}; \
-restore_flags() { \
-	echo -n "| .restore_flags // empty"; \
-}; \
-backup_volume() { \
-	echo "*** Backup volume $$1 ***"; \
-	restic backup $$(config "$$(volume $$1) $$(backup_flags)") --tag $$1 --host "${HOST}" "$$(config "$$(volume $$1) $$(path)")"; \
-}; \
-backup_virtual_volume() { \
-	echo "*** Backup virtual volume $$1 ***"; \
-	$$(config "$$(virtual_volume $$1) $$(backup_cmd)") | restic backup $$(config "$$(virtual_volume $$1) $$(backup_flags)") --tag "$$1" --host "${HOST}" --stdin; \
-}
+define config
+	$(shell cat ${RESTIC_CONF} | jq -r "$(1)")
+endef
+
+define volume_config
+	$(call config,.volumes[] | select(.name == \"$(1)\")$(2))
+endef
+
+define virtual_volume
+	$(call config,.virtual_volumes[] | select(.name == \"$(1)\")$(2))
+endef
+
+define backup_volume
+	echo "*** Backup volume $(1) ***"
+	restic backup $(call volume_config,$(1),|.backup_flags // empty) --tag $(1) --host "${HOST}" $(call volume_config,$(1),|.path);
+endef
+
+define backup_virtual_volume
+	echo "*** Backup virtual_volume $(1) ***"
+	$(call virtual_volume,$(1),.backup_cmd) | restic backup $(call virtual_volume,$(1),.backup_flags // empty) --tag $(1) --host "${HOST}" --stdin
+endef
+
+define restore_volume
+	echo "*** Restore volume '$(1)' from snapshot '$(2)' ***"
+	restic restore $(call volume_config,$(1),.restore_flags // empty) --target / "$(2)"
+endef
+
+define restore_virtual_volume
+	echo "*** Restore virtual volume '$(1)' from snapshot '$(2)' ***"
+	restic dump $(call virtual_volume,$(1),.restore_flags // empty) $(2) /stdin | $(call virtual_volume,$(1),.restore_cmd)
+endef
+
+define volumes_names
+	$(call config,.volumes[].name)
+endef
+
+define virtual_volumes_names
+	$(call config,.virtual_volumes[].name)
+endef
 
 .PHONY: help
 help:; @ $(info $(usage)) :
 
 .PHONY: config-example
-config-example:
-	@echo $$default_config | jq
+config-example:; @ $(info ${config_example}) :
 
 .PHONY: init
 init:
@@ -128,16 +129,12 @@ snapshots:
 .PHONY: list-volumes
 list-volumes:
 	@echo "** Volumes **"
-	@$(call for_each_volume, \
-		echo "- $$volume" \
-	)
+	@$(foreach volume,$(call volumes_names),echo "- $(volume)";)
 
 .PHONY: list-virtual-volumes
 list-virtual-volumes:
 	@echo "** Virtual volumes **"
-	@$(call for_each_virtual_volume, \
-		echo "- $$volume" \
-	)
+	@$(foreach volume,$(call virtual_volumes_names),echo "- $(volume)";)
 
 .PHONY: backup-docker-volumes
 backup-docker-volumes:
@@ -158,11 +155,11 @@ ensure-snapshot-presence:
 
 .PHONY: backup-volume
 backup-volume: ensure-volume-presence
-	@$(CMDS); backup_volume ${volume}
+	@$(call backup_volume,${volume})
 
 .PHONY: backup-volumes
 backup-volumes:
-	@$(CMDS); $(call for_each_volume, backup_volume $$volume)
+	@$(foreach volume,$(call volumes_names),$(call backup_volume,$(volume)))
 
 .PHONY: find-last-snapshot
 find-last-snapshot: ensure-volume-presence
@@ -172,18 +169,16 @@ find-last-snapshot: ensure-volume-presence
 
 .PHONY: restore-volume
 restore-volume: ensure-volume-presence ensure-snapshot-presence
-	@echo "*** Restore volume '${volume}' from snapshot '${snapshot}' ***"
-	@$(CMDS); restic restore $$(config "$$(volume ${volume}) $$(restore_flags)") --target / "${snapshot}"
+	$(call restore_volume,${volume},${snapshot})
 
 .PHONY: backup-virtual-volume
 backup-virtual-volume: ensure-volume-presence
-	@$(CMDS); backup_virtual_volume ${volume}
+	$(call backup_virtual_volume,${volume})
 
 .PHONY: backup-virtual-volumes
 backup-virtual-volumes:
-	@$(CMDS); $(call for_each_virtual_volume, backup_virtual_volume $$volume)
+	$(foreach volume,$(call virtual_volumes_names),$(call backup_virtual_volume,$(volume)))
 
 .PHONY: restore-virtual-volume
 restore-virtual-volume: ensure-volume-presence ensure-snapshot-presence
-	@set -eu; echo "*** Restore virtual volume '${volume}' from snapshot '${snapshot}'"
-	@$(CMDS); restic dump $$(config "$$(virtual_volume ${volume}) $$(restore_flags)") "${snapshot}" /stdin | $$(config "$$(virtual_volume ${volume}) $$(restore_cmd)")
+	$(call restore_virtual_volume,${volume},${snapshot})
