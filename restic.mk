@@ -23,9 +23,6 @@ Options:
   list-virtual-volumes
     List virtual volumes
 
-  backup-docker-volumes
-    Backup docker volumes
-
   backup-volume -e volume=...
     Backup specified volume
 
@@ -138,15 +135,6 @@ list-volumes:
 list-virtual-volumes:
 	@echo "** Virtual volumes **"
 	@$(foreach volume,$(call virtual_volumes_names),echo "- $(volume)";)
-
-.PHONY: backup-docker-volumes
-backup-docker-volumes:
-	@docker_volumes_path=$${DOCKER_VOLUMES_PATH:-/var/lib/docker/volumes/}; \
-		echo "Docker volumes path: $$docker_volumes_path"; \
-		for volume in $$(find $$docker_volumes_path -maxdepth 1 -mindepth 1 -type d -exec basename {} \;); do \
-			echo "*** Backup volume docker-$$volume ***"; \
-			restic backup --tag docker-$$volume --host "${HOST}" "$$docker_volumes_path/$$volume"; \
-		done
 
 .PHONY: ensure-volume-presence
 ensure-volume-presence:
