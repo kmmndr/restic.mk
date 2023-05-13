@@ -2,7 +2,7 @@
 
 RESTIC_CONF?=$$HOME/.restic.json
 HOST?=$(shell hostname -f)
-VERSION=0.3.0
+VERSION=0.4.0
 
 define usage =
 restic.mk (version ${VERSION})
