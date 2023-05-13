@@ -2,8 +2,11 @@
 
 RESTIC_CONF?=$$HOME/.restic.json
 HOST?=$(shell hostname -f)
+VERSION=0.3.0
 
 define usage =
+restic.mk (version ${VERSION})
+
 Options:
   init
     Initialize restic repository
