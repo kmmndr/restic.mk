@@ -1,6 +1,7 @@
 #!/usr/bin/env -S make -f
 
 RESTIC_CONF?=$$HOME/.restic.json
+RESTIC_ENV_FILE?=$$HOME/.restic.env
 HOST?=$(shell hostname -f)
 VERSION=0.4.0
 
@@ -45,6 +46,19 @@ Options:
 
   restore-virtual-volume -e volume=... snapshot=...
     Restore specified virtual volume's snapshot
+
+Environment variables:
+  RESTIC_CONF
+    Path to the JSON config file (default: ~/.restic.json)
+
+  RESTIC_ENV_FILE
+    Path to the KEY=value env file (default: ~/.restic.env);
+    sourced only if the file exists
+    Example to use a rest-server:
+      RESTIC_REPOSITORY=rest:https://backup.example.com:8000/host1
+      RESTIC_PASSWORD_FILE=/etc/restic/password
+      RESTIC_REST_USERNAME=backup-user
+      RESTIC_REST_PASSWORD=...
 endef
 
 define config_example =
@@ -76,6 +90,10 @@ define config
 	$(shell cat ${RESTIC_CONF} | jq -r "$(1)")
 endef
 
+define with_env
+if [ -n "${RESTIC_ENV_FILE}" ] && [ -r "${RESTIC_ENV_FILE}" ]; then echo "*** Loading environment from ${RESTIC_ENV_FILE} ***" >&2; set -a; . "${RESTIC_ENV_FILE}" || exit 1; set +a; fi;
+endef
+
 define volume_config
 	$(call config,.volumes[] | select(.name == \"$(1)\")$(2))
 endef
@@ -86,22 +104,22 @@ endef
 
 define backup_volume
 	echo "*** Backup volume $(1) ***"
-	restic backup $(call volume_config,$(1),|.backup_flags // empty) --tag $(1) --host "${HOST}" $(call volume_config,$(1),|.path);
+	$(call with_env) restic backup $(call volume_config,$(1),|.backup_flags // empty) --tag $(1) --host "${HOST}" $(call volume_config,$(1),|.path);
 endef
 
 define backup_virtual_volume
 	echo "*** Backup virtual_volume $(1) ***"
-	$(call virtual_volume,$(1),.backup_cmd) | restic backup $(call virtual_volume,$(1),.backup_flags // empty) --tag $(1) --host "${HOST}" --stdin
+	$(call with_env) $(call virtual_volume,$(1),.backup_cmd) | restic backup $(call virtual_volume,$(1),.backup_flags // empty) --tag $(1) --host "${HOST}" --stdin
 endef
 
 define restore_volume
 	echo "*** Restore volume '$(1)' from snapshot '$(2)' ***"
-	restic restore $(call volume_config,$(1),.restore_flags // empty) --target / "$(2)"
+	$(call with_env) restic restore $(call volume_config,$(1),.restore_flags // empty) --target / "$(2)"
 endef
 
 define restore_virtual_volume
 	echo "*** Restore virtual volume '$(1)' from snapshot '$(2)' ***"
-	restic dump $(call virtual_volume,$(1),.restore_flags // empty) $(2) /stdin | $(call virtual_volume,$(1),.restore_cmd)
+	$(call with_env) restic dump $(call virtual_volume,$(1),.restore_flags // empty) $(2) /stdin | $(call virtual_volume,$(1),.restore_cmd)
 endef
 
 define volumes_names
@@ -120,11 +138,11 @@ config-example:; @ $(info ${config_example}) :
 
 .PHONY: init
 init:
-	@restic snapshots -q >/dev/null 2>&1 || restic init
+	@$(call with_env) restic snapshots -q >/dev/null 2>&1 || $(call with_env) restic init
 
 .PHONY: snapshots
 snapshots:
-	@restic snapshots --host "${HOST}"
+	@$(call with_env) restic snapshots --host "${HOST}"
 
 .PHONY: list-volumes
 list-volumes:
@@ -155,7 +173,7 @@ backup-volumes:
 .PHONY: find-last-snapshot
 find-last-snapshot: ensure-volume-presence
 	@echo "*** Finding last snapshot for volume '${volume}' ***"
-	@$(eval snapshot=$(shell restic snapshots --tag ${volume} --host ${HOST} --latest 1 --json | jq -r .[].id))
+	@$(eval snapshot=$(shell $(call with_env) restic snapshots --tag ${volume} --host ${HOST} --latest 1 --json | jq -r .[].id))
 	@echo "Last snapshot: ${snapshot}"
 
 .PHONY: restore-volume
