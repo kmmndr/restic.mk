@@ -62,6 +62,7 @@ $ restic.mk config-example > $HOME/.restic.json
 | `RESTIC_CONF` | `~/.restic.json` | Path to the JSON configuration file |
 | `HOST` | `hostname -f` | Hostname passed to restic (`--host`) |
 | `RESTIC_ENV_FILE` | `~/.restic.env` | `KEY=value` file sourced and exported before each `restic` call |
+| `RESTIC_FLAGS` | none | Extra options passed to every `restic` call (e.g. `--insecure-tls`) |
 
 `restic` reads its own settings from the environment (`RESTIC_REPOSITORY`,
 `RESTIC_PASSWORD_FILE`, `RESTIC_REST_USERNAME`, `RESTIC_REST_PASSWORD`, ...).
@@ -93,6 +94,17 @@ restic.mk RESTIC_ENV_FILE=/etc/restic/restic.env backup-volumes
 
 # or from cron:
 17 3 * * * root RESTIC_ENV_FILE=/etc/restic/restic.env restic.mk backup-volumes
+```
+
+Custom restic options — e.g. `--insecure-tls` for a rest-server with a
+self-signed certificate (restic has no official env var for this flag) — can
+be passed to every `restic` call via `RESTIC_FLAGS`, set from the environment,
+the command line, or the env file:
+
+```sh
+restic.mk RESTIC_FLAGS=--insecure-tls backup-volumes
+# or in ~/.restic.env:
+# RESTIC_FLAGS=--insecure-tls
 ```
 
 The env file has no fixed content: any `KEY=value` lines are exported before
@@ -156,6 +168,12 @@ Environment variables:
       RESTIC_PASSWORD_FILE=/etc/restic/password
       RESTIC_REST_USERNAME=backup-user
       RESTIC_REST_PASSWORD=...
+
+  RESTIC_FLAGS
+    Extra options passed to every restic call, e.g. --insecure-tls for a
+    rest-server with a self-signed certificate. Set via the environment,
+    the command line, or the env file:
+      restic.mk RESTIC_FLAGS=--insecure-tls backup-volumes
 ```
 
 ## Tests
