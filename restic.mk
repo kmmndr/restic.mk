@@ -7,7 +7,7 @@ RESTIC_ENV_FILE?=$$HOME/.restic.env
 # so it can be set via the environment, the command line or RESTIC_ENV_FILE.
 RESTIC_FLAGS?=
 HOST?=$(shell hostname -f)
-VERSION=0.4.0
+VERSION=0.5.0
 
 define usage =
 restic.mk (version ${VERSION})
